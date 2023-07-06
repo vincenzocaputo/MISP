@@ -43,7 +43,7 @@ class Warninglist extends AppModel
         'category' => [
             'rule' => ['inList', ['false_positive', 'known']],
         ],
-        'entries' => array(
+	'entries' => array(
             'notEmpty' => [
                 'rule' => 'valueNotEmpty',
 	    ],
