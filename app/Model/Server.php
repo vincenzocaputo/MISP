@@ -5607,7 +5607,7 @@ class Server extends AppModel
                 ],
                 'default_event_distribution' => array(
                     'level' => 0,
-                    'description' => __('The default distribution setting for events (0-3).'),
+                    'description' => __('The default distribution setting for events (0-4).'),
                     'value' => '',
                     'test' => 'testForEmpty',
                     'type' => 'string',
