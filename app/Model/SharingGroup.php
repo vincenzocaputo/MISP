@@ -210,7 +210,7 @@ class SharingGroup extends AppModel
             $sgs = $this->find('list', array(
                 'recursive' => -1,
                 'fields' => array('SharingGroup.id', 'SharingGroup.name'),
-                'order' => 'SharingGroup.name ASC',
+                'order' => 'SharingGroup.id ASC',
                 'conditions' => $conditions,
             ));
             return $sgs;
