@@ -2822,11 +2822,6 @@ class Event extends AppModel
             if (empty($options['scope'])) {
                 $scope = 'Attribute';
             } else {
-                if ($options['scope'] === 'Object') {
-                    $conditional_for_filter = [
-                        'Attribute.object_id' => 0
-                    ];
-                }
                 $scope = $options['scope'];
             }
             $deleted = $this->convert_filters($params['deleted']);
