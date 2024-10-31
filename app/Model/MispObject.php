@@ -297,7 +297,7 @@ class MispObject extends AppModel
             $object['sharing_group_id'] = 0;
         }
         if (!isset($object['distribution'])) {
-            $object['distribution'] = 5;
+            $object['distribution'] = is_null(Configure::read('MISP.default_object_distribution')) ? 5 : Configure::read('MISP.default_object_distribution');
         }
         return true;
     }
@@ -1738,7 +1738,7 @@ class MispObject extends AppModel
     private function getObjectAttributeHash($attribute)
     {
         if ($attribute['type'] === 'malware-sample') {
-            if (strpos($attribute['value'], '|') === false && !empty($attribute['data'])) {
+            if (!str_contains($attribute['value'], '|') && !empty($attribute['data'])) {
                 $attribute['value'] = $attribute['value'] . '|' . md5(base64_decode($attribute['data']));
             }
         }
