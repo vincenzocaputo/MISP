@@ -239,6 +239,17 @@ $divider = '<li class="divider"></li>';
                             'message' => __('Are you sure you wish to republish the current event to the ZMQ channel?')
                         ));
                     }
+                    if ($isSiteAdmin) {
+                        echo $this->element('/genericElements/SideMenu/side_menu_link', array(
+                            'onClick' => array(
+                                'function' => 'openGenericModal',
+                                'params' => [
+                                    $baseurl . '/events/runWorkflow/' . $eventId,
+                                ]
+                            ),
+                            'text' => __('Run Ad-Hoc Workflow')
+                        ));
+                    }
                     if ($this->Acl->canAccess('events', 'pushEventToKafka') &&
                         Configure::read('Plugin.Kafka_enable') &&
                         Configure::read('Plugin.Kafka_event_notifications_enable') &&
@@ -1793,6 +1804,11 @@ $divider = '<li class="divider"></li>';
                     'text' => __('List Triggers')
                 ));
                 echo $this->element('/genericElements/SideMenu/side_menu_link', array(
+                    'element_id' => 'index_adhoc',
+                    'url' => '/workflows/adhoc',
+                    'text' => __('Ad-Hoc Workflows')
+                ));
+                echo $this->element('/genericElements/SideMenu/side_menu_link', array(
                     'element_id' => 'index_module',
                     'url' => '/workflows/moduleIndex',
                     'text' => __('List Modules')
@@ -1804,6 +1820,11 @@ $divider = '<li class="divider"></li>';
                     'element_id' => 'index_trigger',
                     'url' => '/workflows/triggers',
                     'text' => __('List Triggers')
+                ));
+                echo $this->element('/genericElements/SideMenu/side_menu_link', array(
+                    'element_id' => 'index_adhoc',
+                    'url' => '/workflows/adhoc',
+                    'text' => __('Ad-Hoc Workflows')
                 ));
                 echo $this->element('/genericElements/SideMenu/side_menu_link', array(
                     'element_id' => 'index_module',
