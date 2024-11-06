@@ -115,6 +115,7 @@ class Event extends AppModel
         'hashes' => array('txt', 'HashesExport', 'txt'),
         'hosts' => array('txt', 'HostsExport', 'txt'),
         'json' => array('json', 'JsonExport', 'json'),
+        'kunai' => ['json', 'KunaiExport', 'json'],
         'netfilter' => array('txt', 'NetfilterExport', 'sh'),
         'opendata' => array('txt', 'OpendataExport', 'txt'),
         'openioc' => array('xml', 'OpeniocExport', 'ioc'),
@@ -2822,11 +2823,6 @@ class Event extends AppModel
             if (empty($options['scope'])) {
                 $scope = 'Attribute';
             } else {
-                if ($options['scope'] === 'Object') {
-                    $conditional_for_filter = [
-                        'Attribute.object_id' => 0
-                    ];
-                }
                 $scope = $options['scope'];
             }
             $deleted = $this->convert_filters($params['deleted']);
@@ -6442,7 +6438,7 @@ class Event extends AppModel
                 }
                 $dataTag['Tag']['local'] = empty($dataTag['local']) ? false : true;
                 if (!isset($excludeGalaxy) || !$excludeGalaxy) {
-                    if (substr($dataTag['Tag']['name'], 0, strlen('misp-galaxy:')) === 'misp-galaxy:') {
+                    if (str_starts_with($dataTag['Tag']['name'], 'misp-galaxy:')) {
                         $cluster = $this->GalaxyCluster->getCluster($dataTag['Tag']['name'], $user);
                         if ($cluster) {
                             $found = false;
@@ -6710,6 +6706,12 @@ class Event extends AppModel
                 $this->Attribute->create();
                 if (empty($attribute['comment'])) {
                     $attribute['comment'] = $default_comment;
+                }
+                if (!isset($attribute['distribution'])) {
+                    $attribute['distribution'] = $this->Attribute->defaultDistribution();
+                }
+                if ($attribute['distribution'] != 4) {
+                    $attribute['sharing_group_id'] = 0;
                 }
                 if (!empty($attribute['data']) && !empty($attribute['encrypt'])) {
                     $attribute = $this->Attribute->onDemandEncrypt($attribute);
@@ -7093,6 +7095,12 @@ class Event extends AppModel
         $attribute['event_id'] = $event['Event']['id'];
         if (empty($attribute['comment']) && $default_comment) {
             $attribute['comment'] = $default_comment;
+        }
+        if (!isset($attribute['distribution'])) {
+            $attribute['distribution'] = $this->Attribute->defaultDistribution();
+        }
+        if ($attribute['distribution'] != 4) {
+            $attribute['sharing_group_id'] = 0;
         }
         if (!empty($attribute['data']) && !empty($attribute['encrypt'])) {
             $attribute = $this->Attribute->onDemandEncrypt($attribute);
