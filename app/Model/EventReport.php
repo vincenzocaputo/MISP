@@ -631,13 +631,22 @@ class EventReport extends AppModel
 
     public function convertToPDF($content)
     {
+        $moduleName = 'convert_markdown_to_pdf';
         $mispModule = ClassRegistry::init('Module');
         $postData = [
-            'module' => 'convert_markdown_to_pdf',
+            'module' => $moduleName,
             'text' => JsonTool::encode([
                 'markdown' => $content,
             ])
         ];
+
+        $module = $mispModule->getEnabledModule($moduleName, 'expansion');
+        if (isset($module['meta']['config'])) {
+            foreach ($module['meta']['config'] as $conf) {
+                $postData['config'][$conf] = Configure::read('Plugin.Enrichment_' . $moduleName . '_' . $conf);
+            }
+        }
+
         $result = $mispModule->queryModuleServer($postData, false, 'Enrichment', false, [], true);
         if (!empty($result['error'])) {
             throw new BadRequestException('Error Processing Request: ' . $result['error']);
