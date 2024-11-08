@@ -257,6 +257,8 @@ class ACLComponent extends Component
             'sendToLLM' => ['*'],
             'configureTemplateVariable' => ['perm_add'],
             'downloadAsPDF' => ['*'],
+            'addTag' => ['perm_tagger'],
+            'removeTag' => ['perm_tagger'],
         ),
         'events' => array(
             'add' => array('perm_add'),
