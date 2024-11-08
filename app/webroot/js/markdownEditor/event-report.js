@@ -3,7 +3,7 @@
 // Function called to setup custom MarkdownIt rendering and parsing rules
 var markdownItCustomPostInit = markdownItCustomPostInit
 // Hint option passed to the CodeMirror constructor
-var cmCustomHints = hintMISPElements
+var cmCustomHints = hintMISPandTemplateVars
 // Setup function called after the CodeMirror initialization
 var cmCustomSetup = cmCustomSetup
 // Hook allowing to alter the raw text before returning the GFM version to the user to be downloaded
@@ -42,7 +42,7 @@ var renderingRules = {
     'galaxymatrix': true,
     'suggestion': true,
 }
-var galaxyMatrixTimer, tagTimers = {};
+var galaxyMatrixTimer = {}, tagTimers = {};
 var cache_matrix = {}, cache_tag = {};
 var firstCustomPostRenderCall = true;
 var contentBeforeSuggestions
@@ -179,6 +179,60 @@ function buildMISPElementHints() {
     })
 }
 
+function hintMISPandTemplateVars(cm, options) {
+    var hints = hintMISPElements(cm, options)
+    if (hints === null) {
+        return hintTemplateVars(cm, options)
+    }
+    return hints
+}
+
+function hintTemplateVars(cm, options) {
+    var reTemplateVar = RegExp('{{\s*(?<varname>[a-zA-Z_$0-9]{3,})\s*}}');
+    var availableTemplateVars = Object.keys(templateVariablesProxy)
+    var reExtendedWord = /\S/
+    var hintList = []
+    var cursor = cm.getCursor()
+    var line = cm.getLine(cursor.line)
+    var start = cursor.ch
+    var end = cursor.ch
+    while (start && reExtendedWord.test(line.charAt(start - 1))) --start
+    while (end < line.length && reExtendedWord.test(line.charAt(end))) ++end
+    var word = line.slice(start, end).toLowerCase()
+
+    if (word === '{{' || word === '{{}}') {
+        availableTemplateVars.forEach(function(templateVar) {
+            hintList.push({
+                text: '{{ '+ templateVar +' }}'
+            })
+        });
+        return {
+            list: hintList,
+            from: CodeMirror.Pos(cursor.line, start),
+            to: CodeMirror.Pos(cursor.line, end)
+        }
+    }
+
+    var resTemplateVar = reTemplateVar.exec(word)
+    if (resTemplateVar !== null) {
+        var partialScope = resTemplateVar.groups.varname
+        availableTemplateVars.forEach(function(templateVar) {
+            if (templateVar.startsWith(partialScope) && templateVar !== partialScope) {
+                hintList.push({
+                    text: '{{ ' + templateVar + ' }}'
+                })
+            }
+        });
+        if (hintList.length > 0) {
+            return {
+                list: hintList,
+                from: CodeMirror.Pos(cursor.line, start),
+                to: CodeMirror.Pos(cursor.line, end)
+            }
+        }
+    }
+}
+
 function hintMISPElements(cm, options) {
     var authorizedMISPElements = ['attribute', 'object', 'galaxymatrix', 'tag']
     var availableScopes = ['attribute', 'object', 'galaxymatrix', 'tag']
@@ -194,7 +248,7 @@ function hintMISPElements(cm, options) {
     while (start && reExtendedWord.test(line.charAt(start - 1))) --start
     while (end < line.length && reExtendedWord.test(line.charAt(end))) ++end
     var word = line.slice(start, end).toLowerCase()
-    
+
     if (word === '@[]()') {
         availableScopes.forEach(function(scope) {
             hintList.push({
@@ -656,13 +710,15 @@ function updateSuggestionCheckedState($wrapper, $checkbox) {
 function attachRemoteMISPElements() {
     $('.embeddedGalaxyMatrix[data-scope="galaxymatrix"]').each(function() {
         var $div = $(this)
-        clearTimeout(galaxyMatrixTimer);
         $div.append($('<div/>').css('font-size', '24px').append(loadingSpanAnimation))
         var eventID = $div.data('eventid')
         var elementID = $div.data('elementid')
         var cacheKey = eventid + '-' + elementID
+        if (galaxyMatrixTimer[cacheKey] !== undefined) {
+            clearTimeout(galaxyMatrixTimer[cacheKey]);
+        }
         if (cache_matrix[cacheKey] === undefined) {
-            galaxyMatrixTimer = setTimeout(function() {
+            galaxyMatrixTimer[cacheKey] = setTimeout(function() {
                 attachGalaxyMatrix($div, eventID, elementID)
             }, firstCustomPostRenderCall ? 0 : slowDebounceDelay);
         } else {
@@ -813,13 +869,19 @@ function fetchTagInfo(tagNames, callback) {
 function replaceMISPElementByTheirValue(raw) {
     var match, replacement, element
     var final = ''
-    var authorizedMISPElements = ['attribute', 'object']
-    var reMISPElement = RegExp('@\\[(?<scope>' + authorizedMISPElements.join('|') + ')\\]\\((?<elementid>[\\d]+)\\)', 'g');
+    var authorizedMISPElements = ['attribute', 'object', 'tag']
+    var reMISPElement = RegExp('@\\[(?<scope>' + authorizedMISPElements.join('|') + ')\\]\\((?<elementid>[^\\)]+)\\)', 'g');
     var offset = 0
     while ((match = reMISPElement.exec(raw)) !== null) {
         element = proxyMISPElements[match.groups.scope][match.groups.elementid]
         if (element !== undefined) {
-            replacement = match.groups.scope + '-' + element.uuid
+            if (match.groups.scope == 'attribute') {
+                replacement = match.groups.scope + '[type:' + element.type + ']' + '[value:' + element.value + ']'
+            } else if (match.groups.scope == 'object') {
+                replacement = match.groups.scope + '[name:' + element.name + ']' + '[value:' + element.Attribute[0].value + ']'
+            } else if (match.groups.scope == 'tag') {
+                replacement = match.groups.scope + '[' + element.Tag.name + ']'
+            }
         } else {
             replacement = match.groups.scope + '-' + match.groups.elementid
         }
@@ -860,6 +922,13 @@ function injectCustomRulesMenu() {
         items: [
             { name: 'Manual extraction', icon: 'fas fa-highlighter', clickHandler: manualEntitiesExtraction},
             { name: 'Automatic extraction', icon: 'fas fa-magic', clickHandler: automaticEntitiesExtraction},
+        ]
+    })
+    createSubMenu({
+        name: 'Templating',
+        icon: 'fas fa-pencil-ruler',
+        items: [
+            { name: 'Configure Template variables', icon: 'fas fa-pen', clickHandler: configureTemplateVariable},
         ]
     })
     createSubMenu({
@@ -1268,6 +1337,11 @@ function submitExtractionSuggestion() {
 
 function sendToLLM() {
     var url = baseurl + '/eventReports/sendToLLM/' + reportid
+    openGenericModal(url)
+}
+
+function configureTemplateVariable() {
+    var url = baseurl + '/eventReports/configureTemplateVariable'
     openGenericModal(url)
 }
 
