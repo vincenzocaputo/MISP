@@ -115,6 +115,7 @@ class Event extends AppModel
         'hashes' => array('txt', 'HashesExport', 'txt'),
         'hosts' => array('txt', 'HostsExport', 'txt'),
         'json' => array('json', 'JsonExport', 'json'),
+        'kunai' => ['json', 'KunaiExport', 'json'],
         'netfilter' => array('txt', 'NetfilterExport', 'sh'),
         'opendata' => array('txt', 'OpendataExport', 'txt'),
         'openioc' => array('xml', 'OpeniocExport', 'ioc'),
@@ -928,7 +929,8 @@ class Event extends AppModel
                 throw new Exception("This should never happen.");
             }
 
-            $serverSync->pushEvent($event)->json();
+            $response = $serverSync->pushEvent($event)->json();
+            $serverSync->debug("Pushed event '{$event['Event']['uuid']}' to remote server as event with remote ID {$response['Event']['id']}");
         } catch (Crypt_GPG_KeyNotFoundException $e) {
             $errorMessage = sprintf(
                 'Could not push event %s to remote server #%s. Reason: %s',
@@ -2816,6 +2818,7 @@ class Event extends AppModel
 
     public function set_filter_deleted(&$params, $conditions, $options)
     {
+        $conditional_for_filter = null;
         if (isset($params['deleted'])) {
             if (empty($options['scope'])) {
                 $scope = 'Attribute';
@@ -2823,7 +2826,7 @@ class Event extends AppModel
                 $scope = $options['scope'];
             }
             $deleted = $this->convert_filters($params['deleted']);
-            $conditions = $this->generic_add_filter($conditions, $deleted, $scope . '.deleted');
+            $conditions = $this->generic_add_filter($conditions, $deleted, $scope . '.deleted', $conditional_for_filter);
         }
         return $conditions;
     }
@@ -6298,7 +6301,7 @@ class Event extends AppModel
         }
     }
 
-    public function enrichment($params)
+    public function enrichment(array $params)
     {
         $option_fields = array('user', 'event_id', 'modules');
         foreach ($option_fields as $option_field) {
@@ -6306,7 +6309,6 @@ class Event extends AppModel
                 throw new MethodNotAllowedException(__('%s not set', $option_field));
             }
         }
-        $event = [];
         if (!empty($params['attribute_uuids'])) {
             $attributes = $this->Attribute->fetchAttributes($params['user'], [
                 'conditions' => [
@@ -6326,13 +6328,16 @@ class Event extends AppModel
                 'includeAttachments' => 1,
                 'flatten' => 1,
             ]);
+            if (empty($event)) {
+                throw new MethodNotAllowedException('Invalid event.');
+            }
         }
+
         $this->Module = ClassRegistry::init('Module');
         $enabledModules = $this->Module->getEnabledModules($params['user']);
         if (empty($enabledModules) || is_string($enabledModules)) {
             return true;
         }
-        $options = array();
         foreach ($enabledModules['modules'] as $k => $temp) {
             if (isset($temp['meta']['config'])) {
                 $settings = array();
@@ -6342,9 +6347,7 @@ class Event extends AppModel
                 $enabledModules['modules'][$k]['config'] = $settings;
             }
         }
-        if (empty($event)) {
-            throw new MethodNotAllowedException('Invalid event.');
-        }
+
         $attributes_added = 0;
         $initial_objects = array();
         $event_id = $event[0]['Event']['id'];
@@ -6360,7 +6363,7 @@ class Event extends AppModel
                         if (!empty($module['config'])) {
                             $data['config'] = $module['config'];
                         }
-                        if (!empty($module['mispattributes']['format']) && $module['mispattributes']['format'] == 'misp_standard') {
+                        if (!empty($module['mispattributes']['format']) && $module['mispattributes']['format'] === 'misp_standard') {
                             $data['attribute'] = $attribute;
                         } else {
                             $data[$attribute['type']] = $attribute['value'];
@@ -6375,12 +6378,11 @@ class Event extends AppModel
                             throw new MethodNotAllowedException(h($module['name']) . ' service not reachable.');
                         } else if (!is_array($result)) {
                             continue 2;
+                        } else if (!isset($result['results'])) {
+                            throw new RuntimeException("Invalid response received from module {$module['name']}, response data do not contains results field.");
                         }
                         //if (isset($result['error'])) $this->Session->setFlash($result['error']);
-                        if (!is_array($result)) {
-                            throw new Exception($result);
-                        }
-                        if (!empty($module['mispattributes']['format']) && $module['mispattributes']['format'] == 'misp_standard') {
+                        if (!empty($module['mispattributes']['format']) && $module['mispattributes']['format'] === 'misp_standard') {
                             if ($object_id != '0' && !empty($initial_objects[$object_id])) {
                                 $result['initialObject'] = $initial_objects[$object_id];
                             }
@@ -6436,7 +6438,7 @@ class Event extends AppModel
                 }
                 $dataTag['Tag']['local'] = empty($dataTag['local']) ? false : true;
                 if (!isset($excludeGalaxy) || !$excludeGalaxy) {
-                    if (substr($dataTag['Tag']['name'], 0, strlen('misp-galaxy:')) === 'misp-galaxy:') {
+                    if (str_starts_with($dataTag['Tag']['name'], 'misp-galaxy:')) {
                         $cluster = $this->GalaxyCluster->getCluster($dataTag['Tag']['name'], $user);
                         if ($cluster) {
                             $found = false;
@@ -6705,6 +6707,12 @@ class Event extends AppModel
                 if (empty($attribute['comment'])) {
                     $attribute['comment'] = $default_comment;
                 }
+                if (!isset($attribute['distribution'])) {
+                    $attribute['distribution'] = $this->Attribute->defaultDistribution();
+                }
+                if ($attribute['distribution'] != 4) {
+                    $attribute['sharing_group_id'] = 0;
+                }
                 if (!empty($attribute['data']) && !empty($attribute['encrypt'])) {
                     $attribute = $this->Attribute->onDemandEncrypt($attribute);
                 }
@@ -6730,7 +6738,16 @@ class Event extends AppModel
                         $id
                     );
                     if (!empty($original_uuid)) {
-                        $recovered_uuids[$attribute['uuid']] = $original_uuid;
+                        $recovered_uuids[$attribute['uuid']] = $original_uuid['uuid'];
+                        if (!empty($attribute['Tag'])) {
+                            foreach ($attribute['Tag'] as $tag) {
+                                $tag_id = $this->Attribute->AttributeTag->Tag->captureTag($tag, $user);
+                                if ($tag_id) {
+                                    $relationship_type = empty($tag['relationship_type']) ? false : $tag['relationship_type'];
+                                    $this->Attribute->AttributeTag->attachTagToAttribute($original_uuid['id'], $id, $tag_id, !empty($tag['local']), $relationship_type);
+                                }
+                            }
+                        }
                     } else {
                         $failed[] = $attribute['uuid'];
                     }
@@ -7039,11 +7056,11 @@ class Event extends AppModel
                     'Attribute.value' => $attribute_value
                 ),
                 'recursive' => -1,
-                'fields' => array('Attribute.uuid')
+                'fields' => array('Attribute.uuid', 'Attribute.id')
             )
         );
         if (!empty($original_uuid)) {
-            return $original_uuid['Attribute']['uuid'];
+            return $original_uuid['Attribute'];
         }
         $original_uuid = $this->Object->find(
             'first',
@@ -7087,6 +7104,12 @@ class Event extends AppModel
         $attribute['event_id'] = $event['Event']['id'];
         if (empty($attribute['comment']) && $default_comment) {
             $attribute['comment'] = $default_comment;
+        }
+        if (!isset($attribute['distribution'])) {
+            $attribute['distribution'] = $this->Attribute->defaultDistribution();
+        }
+        if ($attribute['distribution'] != 4) {
+            $attribute['sharing_group_id'] = 0;
         }
         if (!empty($attribute['data']) && !empty($attribute['encrypt'])) {
             $attribute = $this->Attribute->onDemandEncrypt($attribute);

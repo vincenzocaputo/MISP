@@ -88,9 +88,29 @@ class EventReport extends AppModel
         // Set defaults for when some of the mandatory fields don't have defaults
         // These fields all have sane defaults either based on another field, or due to server settings
         if (!isset($eventReport['distribution'])) {
-            $eventReport['distribution'] = $this->Event->Attribute->defaultDistribution();
+            $eventReport['distribution'] = is_null(Configure::read('MISP.default_eventreport_distribution')) ? 5 : Configure::read('MISP.default_eventreport_distribution');
         }
         return true;
+    }
+
+    public function afterSave($created, $options = array())
+    {
+        $isTriggerCallable = $this->isTriggerCallable('event-report-after-save');
+        if ($isTriggerCallable) {
+            $report = $this->data['EventReport'];
+            $action = $created ? 'add' : 'edit';
+            if (!empty($report['deleted'])) {
+                $action = 'soft-delete';
+            }
+            $workflowErrors = [];
+            $logging = [
+                'model' => 'EventReport',
+                'action' => $action,
+                'id' => $report['id'],
+            ];
+            $triggerData = ['EventReport' => $report];
+            $this->executeTrigger('event-report-after-save', $triggerData, $workflowErrors, $logging);
+        }
     }
 
     /**
@@ -973,8 +993,8 @@ class EventReport extends AppModel
      */
     private function isValidReplacementTag($content, $tagName)
     {
-        $toSearch = strpos($tagName, ':') === false ? ' ' . $tagName . ' ' : $tagName;
-        return strpos($content, $toSearch) !== false;
+        $toSearch = !str_contains($tagName, ':') ? ' ' . $tagName . ' ' : $tagName;
+        return str_contains($content, $toSearch);
     }
 
     public function attachTagsAfterReplacements($user, $replacedContext, $eventId)
@@ -1001,8 +1021,15 @@ class EventReport extends AppModel
         return $report;
     }
 
-    public function sendToLLM($report, $user, &$errors)
+    public function sendToLLM($report, $user, &$errors, $options = [])
     {
+        $defaultOptions = [
+            'insert_executive_summary' => true,
+            'tag_event_with_threat_actor' => true,
+            'tag_event_with_threat_actor_country' => true,
+            'tag_event_with_threat_actor_motivation' => true,
+        ];
+        $options = array_merge($defaultOptions, $options);
         $syncTool = new SyncTool();
         $config = [];
         $HttpSocket = $syncTool->setupHttpSocket($config, $this->timeout);
@@ -1047,28 +1074,35 @@ class EventReport extends AppModel
 	'AI_CouldWeBeAffected' => true
 );
 */
-        
-        if (!empty($data['AI_ExecutiveSummary'])) {
-            $report['EventReport']['content'] = '# Executive Summary' . PHP_EOL . $data['AI_ExecutiveSummary'] . PHP_EOL . PHP_EOL . '# Report' . PHP_EOL . $report['EventReport']['content'];
+        if ($options['insert_executive_summary']) {
+            if (!empty($data['AI_ExecutiveSummary'])) {
+                $report['EventReport']['content'] = '# Executive Summary' . PHP_EOL . $data['AI_ExecutiveSummary'] . PHP_EOL . PHP_EOL . '# Report' . PHP_EOL . $report['EventReport']['content'];
+            }
+            $this->save($report);
         }
-        $this->save($report);
         $event = $this->Event->find('first', [
             'conditions' => ['Event.id' => $report['EventReport']['event_id']],
             'recursive' => -1
         ]);
-        if (!empty($data['AI_ThreatActor'])) {
-            $tag_id = $this->Event->EventTag->Tag->captureTag(['name' => 'misp-galaxy:threat-actor="' . $data['AI_ThreatActor'] . '"'], $user);
-            $this->Event->EventTag->attachTagToEvent($event['Event']['id'], ['id' => $tag_id]);
+        if ($options['tag_event_with_threat_actor']) {
+            if (!empty($data['AI_ThreatActor'])) {
+                $tag_id = $this->Event->EventTag->Tag->captureTag(['name' => 'misp-galaxy:threat-actor="' . $data['AI_ThreatActor'] . '"'], $user);
+                $this->Event->EventTag->attachTagToEvent($event['Event']['id'], ['id' => $tag_id]);
+            }
         }
 
-        if (!empty($data['AI_AttributedCountry'])) {
-            $tag_id = $this->Event->EventTag->Tag->captureTag(['name' => 'misp-galaxy:threat-actor-country="' . $data['AI_AttributedCountry'] . '"'], $user);
-            $this->Event->EventTag->attachTagToEvent($event['Event']['id'], ['id' => $tag_id]);
+        if ($options['tag_event_with_threat_actor_country']) {
+            if (!empty($data['AI_AttributedCountry'])) {
+                $tag_id = $this->Event->EventTag->Tag->captureTag(['name' => 'misp-galaxy:threat-actor-country="' . $data['AI_AttributedCountry'] . '"'], $user);
+                $this->Event->EventTag->attachTagToEvent($event['Event']['id'], ['id' => $tag_id]);
+            }
         }
 
-        if (!empty($data['AI_Motivation'])) {
-            $tag_id = $this->Event->EventTag->Tag->captureTag(['name' => 'misp-galaxy:threat-actor-motivation="' . $data['AI_Motivation'] . '"'], $user);
-            $this->Event->EventTag->attachTagToEvent($event['Event']['id'], ['id' => $tag_id]);
+        if ($options['tag_event_with_threat_actor_motivation']) {
+            if (!empty($data['AI_Motivation'])) {
+                $tag_id = $this->Event->EventTag->Tag->captureTag(['name' => 'misp-galaxy:threat-actor-motivation="' . $data['AI_Motivation'] . '"'], $user);
+                $this->Event->EventTag->attachTagToEvent($event['Event']['id'], ['id' => $tag_id]);
+            }
         }
         return $report;
     }

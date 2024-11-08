@@ -64,6 +64,7 @@ var dotBlock_trigger = doT.template(' \
                 </span> \
             </span> \
         </div> \
+        {{=it._node_param_html}} \
     </div> \
 </div>')
 
@@ -1650,11 +1651,15 @@ function enableHashpathPicker() {
 }
 
 function redrawFormatPicker(json, associatedParamId) {
-    var jsonData = JSON.parse(json)
-    var $customDataInput = genCustomDataInputForHashpathPicker(associatedParamId)
-    var UIPicker = generateCoreFormatUI(jsonData, associatedParamId)
-    var $modalBody = $('<div>').attr('style', 'display: flex; flex-direction: column').append($customDataInput, UIPicker)
-    $('#core-format-picker').parent().html($modalBody[0])
+    try {
+        var jsonData = JSON.parse(json)
+        var $customDataInput = genCustomDataInputForHashpathPicker(associatedParamId)
+        var UIPicker = generateCoreFormatUI(jsonData, associatedParamId)
+        var $modalBody = $('<div>').attr('style', 'display: flex; flex-direction: column').append($customDataInput, UIPicker)
+        $('#core-format-picker').parent().html($modalBody[0])
+    } catch (error) {
+        console.error('Invalid JSON');
+    }
 }
 
 function genCustomDataInputForHashpathPicker(associatedParamId) {
@@ -1862,7 +1867,7 @@ function genInput(options, isTextArea, forNode = true) {
     var $input
     if (isTextArea) {
         if (forNode) {
-            $input = $('<textarea>').attr('rows', 1).prop('disabled', true).css({ resize: 'none' }).attr('title', 'Can only be edited in node settings')
+            $input = $('<textarea>').attr('rows', 3).prop('disabled', true).css({ resize: 'none' }).attr('title', 'Can only be edited in node settings')
         } else {
             $input = $('<textarea>').attr('rows', 4).css({resize: 'none'}).addClass('start-codemirror')
         }

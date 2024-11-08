@@ -33,8 +33,8 @@ class AppController extends Controller
 
     public $helpers = array('OrgImg', 'FontAwesome', 'UserName');
 
-    private $__queryVersion = '163';
-    public $pyMispVersion = '2.4.197';
+    private $__queryVersion = '165';
+    public $pyMispVersion = '2.4.198';
     public $phpmin = '7.2';
     public $phprec = '7.4';
     public $phptoonew = '8.0';
@@ -108,19 +108,18 @@ class AppController extends Controller
 
     public function beforeFilter()
     {
+        if (Configure::read('MISP.system_setting_db')) {
+            App::uses('SystemSetting', 'Model');
+            SystemSetting::setGlobalSetting();
+        }
+
         // Set the baseurl for redirects
         $baseurl = empty(Configure::read('MISP.baseurl')) ? null : Configure::read('MISP.baseurl');
-        // If external_baseurl is set, let's prefer that instead though
-        $baseurl = empty(Configure::read('MISP.external_baseurl')) ? $baseurl : Configure::read('MISP.external_baseurl');
         if (!empty($baseurl)) {
             Configure::write('App.fullBaseUrl', $baseurl);
             Router::fullBaseUrl($baseurl);
         }
 
-        if (Configure::read('MISP.system_setting_db')) {
-            App::uses('SystemSetting', 'Model');
-            SystemSetting::setGlobalSetting();
-        }
         $this->_setupBaseurl();
         $this->User = ClassRegistry::init('User');
         if (Configure::read('Plugin.Benchmarking_enable')) {
@@ -777,7 +776,7 @@ class AppController extends Controller
 
         $shouldBeLogged = $userMonitoringEnabled ||
             Configure::read('MISP.log_paranoid') ||
-            (Configure::read('MISP.log_paranoid_api') && isset($user['logged_by_authkey']) && $user['logged_by_authkey']);
+            (Configure::read('MISP.log_paranoid_api') && isset($user['logged_by_authkey']));
 
         if ($shouldBeLogged) {
             $includeRequestBody = !empty(Configure::read('MISP.log_paranoid_include_post_body')) || $userMonitoringEnabled;
@@ -961,7 +960,7 @@ class AppController extends Controller
     {
         // Let us access $baseurl from all views
         $baseurl = Configure::read('MISP.baseurl');
-        if (substr($baseurl, -1) === '/') {
+        if (str_ends_with($baseurl, '/')) {
             // if the baseurl has a trailing slash, remove it. It can lead to issues with the CSRF protection
             $baseurl = rtrim($baseurl, '/');
             $this->loadModel('Server');
@@ -1066,7 +1065,7 @@ class AppController extends Controller
                     $data = array_merge($data, $temp);
                 } else {
                     foreach ($options['paramArray'] as $param) {
-                        if (substr($param, -1) == '*') {
+                        if (str_ends_with($param, '*')) {
                             $root = substr($param, 0, strlen($param)-1);
                             foreach ($temp as $existingParamKey => $v) {
                                 $leftover = substr($existingParamKey, strlen($param)-1);
@@ -1128,7 +1127,7 @@ class AppController extends Controller
             foreach ($data as $k => $v) {
                 $found = false;
                 foreach ($options['additional_delimiters'] as $delim) {
-                    if (strpos($v, $delim) !== false) {
+                    if (str_contains($v, $delim)) {
                         $found = true;
                         break;
                     }
