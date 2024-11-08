@@ -6738,7 +6738,16 @@ class Event extends AppModel
                         $id
                     );
                     if (!empty($original_uuid)) {
-                        $recovered_uuids[$attribute['uuid']] = $original_uuid;
+                        $recovered_uuids[$attribute['uuid']] = $original_uuid['uuid'];
+                        if (!empty($attribute['Tag'])) {
+                            foreach ($attribute['Tag'] as $tag) {
+                                $tag_id = $this->Attribute->AttributeTag->Tag->captureTag($tag, $user);
+                                if ($tag_id) {
+                                    $relationship_type = empty($tag['relationship_type']) ? false : $tag['relationship_type'];
+                                    $this->Attribute->AttributeTag->attachTagToAttribute($original_uuid['id'], $id, $tag_id, !empty($tag['local']), $relationship_type);
+                                }
+                            }
+                        }
                     } else {
                         $failed[] = $attribute['uuid'];
                     }
@@ -7047,11 +7056,11 @@ class Event extends AppModel
                     'Attribute.value' => $attribute_value
                 ),
                 'recursive' => -1,
-                'fields' => array('Attribute.uuid')
+                'fields' => array('Attribute.uuid', 'Attribute.id')
             )
         );
         if (!empty($original_uuid)) {
-            return $original_uuid['Attribute']['uuid'];
+            return $original_uuid['Attribute'];
         }
         $original_uuid = $this->Object->find(
             'first',
