@@ -451,6 +451,16 @@ class EventReportsController extends AppController
 
     public function downloadAsPDF($reportId)
     {
+        $moduleName = 'convert_markdown_to_pdf';
+        $this->loadModel('Module');
+        $module = $this->Module->getEnabledModule($moduleName, 'expansion');
+        if (!Configure::read('Plugin.Enrichment_' . $moduleName . '_enabled')) {
+            throw new MethodNotAllowedException('Module not found or not available.');
+        }
+        if (!$this->Module->canUse($this->Auth->user(), 'Enrichment', $module)) {
+            throw new MethodNotAllowedException('Module not found or not available.');
+        }
+
         $report = $this->EventReport->simpleFetchById($this->Auth->user(), $reportId);
         $content = $report['EventReport']['content'];
         $contentWithTemplateVars = $this->EventReport->replaceWithTemplateVars($content, $this->Auth->user());
