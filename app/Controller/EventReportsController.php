@@ -345,7 +345,7 @@ class EventReportsController extends AppController
         } else {
             $this->paginate['conditions']['AND'][] = $compiledConditions;
             $reports = $this->paginate();
-            $reports = $this->moveTagLocality($reports);
+            $reports = $this->__moveTagLocality($reports);
             $this->set('reports', $reports);
             $this->__injectIndexVariablesToViewContext($filters);
             if (!empty($filters['index_for_event'])) {
@@ -369,7 +369,7 @@ class EventReportsController extends AppController
         }
     }
 
-    private function moveTagLocality(array $reports): array
+    private function __moveTagLocality(array $reports): array
     {
         foreach ($reports as $i => $report) {
             foreach ($report['EventReportTag'] as $j => $reportTag) {
