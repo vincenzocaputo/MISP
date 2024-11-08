@@ -152,7 +152,7 @@ class GalaxiesController extends AppController
             return $this->restResponsePayload;
         }
 
-        $this->setDistribution();
+        $this->__setDistribution();
         $this->set('action', 'add');
     }
 
@@ -195,11 +195,11 @@ class GalaxiesController extends AppController
         $this->set('id', $galaxy['Galaxy']['id']);
         $this->set('galaxy', $galaxy);
         $this->set('action', 'edit');
-        $this->setDistribution();
+        $this->__setDistribution();
         $this->render('add');
     }
 
-    public function setDistribution()
+    private function __setDistribution()
     {
         $this->loadModel('Attribute');
         $distributionLevels = $this->Attribute->distributionLevels;
