@@ -3178,6 +3178,14 @@ components:
             - $ref: "#/components/schemas/NullableMicroTimestamp"
             - type: string
               format: date-time
+        Tag:
+          type: array
+          items:
+            $ref: "#/components/schemas/Tag"
+        Galaxy:
+          type: array
+          items:
+            $ref: "#/components/schemas/Galaxy"
 
     Attribute:
       allOf:
