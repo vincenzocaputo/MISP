@@ -674,7 +674,7 @@ class EventReport extends AppModel
 
     public function replacePicturesReferenceWithB64Value($content, $event_id, $user)
     {
-        $this->MispAttribute = ClassRegistry::init('MispAttribute');
+        $this->Attribute = ClassRegistry::init('Attribute');
         $matches = [];
         $rePictureElement = sprintf('/(?<!@)!\[[^\[\]\(\)]+\]\((?<filename>[a-zA-Z0-9_\/\-]+(?>\.(?>%s))?)\)/m', implode('|', self::SUPPORTED_IMAGES));
         $reUUID4 = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
@@ -712,12 +712,12 @@ class EventReport extends AppModel
             $uuid = $match['uuid'];
 
             try {
-                $attribute = $this->MispAttribute->fetchAttributeSimple($user, [
+                $attribute = $this->Attribute->fetchAttributeSimple($user, [
                     'conditions' => [
                         'Attribute.uuid' => $uuid,
                     ]
                 ]);
-                $b64 = $this->MispAttribute->base64EncodeAttachment($attribute['Attribute']);
+                $b64 = $this->Attribute->base64EncodeAttachment($attribute['Attribute']);
                 $ext = strtolower(pathinfo($attribute['Attribute']['value'], PATHINFO_EXTENSION));
                 if ($ext === 'svg') {
                     $mime = 'image/svg+xml';
