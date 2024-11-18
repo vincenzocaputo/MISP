@@ -593,13 +593,13 @@ class EventReportsController extends AppController
         } else {
             $report = $this->EventReport->fetchIfAuthorized($this->Auth->user(), $reportId, 'edit', true, false);
             if ($this->request->is('post')) {
-                $this->loadModel('MispAttribute');
+                $this->loadModel('Attribute');
                 $picture = $this->request->data['EventReport']['picture'];
                 $saveAsAttachment = !empty($this->request->data['EventReport']['save_as_attachment']);
                 $saveAsAttachmentConfig = false;
                 if ($saveAsAttachment) {
                     $saveAsAttachmentConfig['comment'] = $this->request->data['EventReport']['comment'] ?? __('Imported via Event Report');
-                    $saveAsAttachmentConfig['distribution'] = $this->request->data['EventReport']['distribution'] ?? $this->MispAttribute->defaultDistribution();
+                    $saveAsAttachmentConfig['distribution'] = $this->request->data['EventReport']['distribution'] ?? $this->Attribute->defaultDistribution();
                 }
                 $uploadResult = $this->EventReport->uploadPicture($picture, $report, $saveAsAttachmentConfig);
                 if ($uploadResult['success']) {

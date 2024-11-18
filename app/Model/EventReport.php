@@ -1248,7 +1248,7 @@ class EventReport extends AppModel
 
             if (!empty($tmp_name) && is_uploaded_file($tmp_name)) {
                 if (!empty($saveAsAttachmentConfig)) {
-                    $this->MispAttribute = ClassRegistry::init('MispAttribute');
+                    $this->Attribute = ClassRegistry::init('Attribute');
                     $tmpfile = new File($tmp_name);
                     $attribute = [
                         'Attribute' => [
@@ -1263,8 +1263,8 @@ class EventReport extends AppModel
                             'sharing_group_id' => isset($saveAsAttachmentConfig['sharing_group_id']) ? $saveAsAttachmentConfig['sharing_group_id'] : 0,
                         ]
                     ];
-                    $this->MispAttribute->create();
-                    $attributeSaveResult = $this->MispAttribute->save($attribute);
+                    $this->Attribute->create();
+                    $attributeSaveResult = $this->Attribute->save($attribute);
                     if (!empty($attributeSaveResult)) {
                         $saveResult['success'] = true;
                         $saveResult['attribute_uuid'] = $attributeSaveResult['Attribute']['uuid'];
