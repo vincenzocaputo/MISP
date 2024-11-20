@@ -26,18 +26,15 @@
  * For MySQL to connect via socket specify the `unix_socket` parameter instead of `host` and `port`
  */
 class DATABASE_CONFIG {
-
-	public $default = array(
-		'datasource' => 'Database/Mysql',
-		//'datasource' => 'Database/Postgres',
-		'persistent' => false,
-		'host' => 'localhost',
-		'login' => 'db login',
-		'port' => 3306, // MySQL & MariaDB
-		//'port' => 5432, // PostgreSQL
-		'password' => 'db password',
-		'database' => 'misp',
-		'prefix' => '',
-		'encoding' => 'utf8',
-	);
+    public $default = array(
+        'datasource' => 'Database/Mysql',
+        'persistent' => false,
+        'host' => 'localhost',
+        'login' => 'db login',
+        'port' => 3306, // MySQL & MariaDB
+        'password' => 'db password',
+        'database' => 'misp',
+        'prefix' => '',
+        'encoding' => 'utf8',
+    );
 }
